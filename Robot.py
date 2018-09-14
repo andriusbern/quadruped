@@ -60,3 +60,38 @@ class Servo:
 
     def shutdown(self):
         self.controller.bus.write_byte_data(self.controller.address, self.control_register, 0)
+
+
+# Distance sensor classs
+class Sensor:
+    def __init__(self, trig=20, echo=21):
+        self.trig = trig
+        self.echo = echo
+        GPIO.setup(trig,GPIO.OUT)
+        GPIO.setup(echo,GPIO.IN)
+        GPIO.output(trig,False)
+        time.sleep(0.01)
+
+    def getDistance(self):
+        GPIO.output(self.trig,True)
+        time.sleep(0.001)
+        GPIO.output(self.trig,False)
+        pulse_end, pulse_start = (0, 0)
+        while GPIO.input(self.echo) == 0:
+            pulse_start = time.time()
+        while GPIO.input(self.echo) == 1:
+            pulse_end = time.time()
+
+        distance = round((pulse_end - pulse_start) * 17150, 2)
+        return distance
+
+
+# RaspberryPi Camera module
+class Camera(PiCamera):
+    def __init__(self):
+        PiCamera.__init__(self)
+        #self.tilt = Servo()
+        #self.rotation = Servo()
+    
+    # Implement functions through opencv to do object tracking and recognition
+

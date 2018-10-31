@@ -16,14 +16,15 @@ from picamera import PiCamera
 # S_n - Speed value [0-15]
 
 class DS_SCX18S:
-    def __init__(self, address=0x74, commit_delay=0.01):
+    def __init__(self, address=0x74, execute_delay=0.01):
         self.bus = smbus.SMBus(1)
         self.address = address
-        self.commit_delay = commit_delay
+        self.execute_delay = execute_delay
 
-    def commit(self):
+    # Executes all the changes in servo registers
+    def execute(self):
         self.bus.write_byte_data(self.address, 37, 0)
-        time.sleep(self.commit_delay)
+        time.sleep(self.execute_delay)
 
 
 class Servo:
@@ -31,10 +32,12 @@ class Servo:
     def __init__(self, controller, index, position, params=[1,0,0,1], speed=14):
         self.params = params
         self.position = position # [0-255]
+        self.initial_position = position
         self.speed = speed       # Rotational speed
         self.controller = controller
         self.control_register = index * 2
         self.position_register = index * 2 - 1
+        self.index = index
     
     # Calculates the current position based on params [0-127]
     def calc(self):
@@ -67,6 +70,7 @@ class Sensor:
     def __init__(self, trig=20, echo=21):
         self.trig = trig
         self.echo = echo
+        GPIO.setmode(GPIO.BCM)
         GPIO.setup(trig,GPIO.OUT)
         GPIO.setup(echo,GPIO.IN)
         GPIO.output(trig,False)
@@ -93,5 +97,93 @@ class Camera(PiCamera):
         #self.tilt = Servo()
         #self.rotation = Servo()
     
-    # Implement functions through opencv to do object tracking and recognition
 
+class Leg:
+    def __init__(self, controller, leg_number):
+        self.controller = controller
+
+        self.coxa  = Servo(controller, (leg_number-1)*3, 122)
+        self.femur = Servo(controller, (leg_number-1)*3+1, 122)
+        self.tibia = Servo(controller, (leg_number-1)*3+2, 122)
+        self.servos = [self.coxa, self.femur, self.tibia]
+
+    # Increment/decrement current servo positions
+    def move_servos(self, increments):
+        for i, servo in enumerate(self.servos):
+            servo.update_position(increments[i])
+            servo.move()
+        self.controller.execute()
+
+    def set_servos(self, leg_index, positions):
+        for i, servo in enumerate(self.servos):
+            servo.position = positions[i]
+            servo.move()
+        self.controller.execute()
+
+    def servo_status(self):
+        line = ''
+        for servo in self.servos:
+            line += "Servo {}: ".format(servo.index) + "{:3d}".format(servo.position) + "  |  "
+        return line
+
+
+class Body:
+    def __init__(self, controller, n_legs=4):
+        self.legs = [Leg(controller, x+1) for x in range(n_legs)]
+
+    
+
+
+class Robot:
+    def __init__(self):
+
+        self.camera = Camera()
+        self.controller = DS_SCX18S()
+        self.sensor = Sensor()
+        self.body = Body(self.controller)
+        self.step = 3
+
+
+    def initialize(self):
+        for leg in self.body.legs:
+            for servo in leg.servos:
+                servo.move(servo.initial_position)
+        self.controller.execute()
+
+    def manual_control(self):
+        self.body.set_servos([122, 122, 122])
+        print("Manual Control Mode\n")
+        leg_no = input("Enter the leg number [1-4] or 0 for all: \n")
+        while True:
+            
+            char = getch()
+            if char == "w": self.body.legs[leg_no].move_servos([0,  self.step, 0])
+            if char == "s": self.body.legs[leg_no].move_servos([0, -self.step, 0])
+            if char == "a": self.body.legs[leg_no].move_servos([ self.step, 0, 0])
+            if char == "d": self.body.legs[leg_no].move_servos([-self.step, 0, 0])
+            if char == "q": self.body.legs[leg_no].move_servos([0, 0,  self.step])
+            if char == "e": self.body.legs[leg_no].move_servos([0, 0, -self.step])
+            if char == "r": self.step += 1
+            if char == "f": self.step -= 1
+            print(self.body.legs[leg_no-1].servo_status(), end="\r")
+            if char == "p":
+                print("Exiting")
+                break
+
+## Read keyboard inputs
+def getch():
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        char = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd,termios.TCSADRAIN, old_settings)
+    return char
+
+
+
+if __name__ == "__main__":
+    robot = Robot()
+    robot.control(init=True)
+    robot.run()

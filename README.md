@@ -10,7 +10,6 @@ A custom 12 degree-of-freedom robot printed using *Creality Ender 3*.
 4. Inverse kinematics for motor control
 5. Mountable camera which can be used to stream video through SSH
 
-  **1. Gait examples**         | 
-:-------------------------:|:-------------------------:
- <img src="assets/quadruped.gif" width="300">   | 
- 
+##            Gait examples
+
+<img src="assets/quadruped.gif" width="400">

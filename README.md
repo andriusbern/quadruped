@@ -12,5 +12,5 @@ A custom 12 degree-of-freedom robot printed using *Creality Ender 3*.
 
   **1. Gait examples**         | 
 :-------------------------:|:-------------------------:
- <img src="assets/quadruped.gif" width="300">   | <img src="assets/untitled.gif" width="500">
+ <img src="assets/quadruped.gif" width="300">   | 
  
